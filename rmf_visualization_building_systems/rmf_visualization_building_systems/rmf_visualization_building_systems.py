@@ -164,7 +164,7 @@ class BuildingSystemsVisualizer(Node):
 
     def create_lift_marker(self, lift_name):
         if lift_name not in self.building_lifts or \
-          lift_name not in self.lift_states:
+                lift_name not in self.lift_states:
             return
         marker = Marker()
         marker.header.frame_id = 'map'
@@ -204,7 +204,7 @@ class BuildingSystemsVisualizer(Node):
 
     def create_lift_text_marker(self, lift_name):
         if lift_name not in self.building_lifts or \
-          lift_name not in self.lift_states:
+                lift_name not in self.lift_states:
             return
         marker = Marker()
         marker.header.frame_id = 'map'
@@ -242,91 +242,108 @@ class BuildingSystemsVisualizer(Node):
         return marker
 
     def map_cb(self, msg):
-        print(f'Received building map with {len(msg.levels)} levels \
-          and {len(msg.lifts)} lifts')
-        self.building_doors = {}
-        self.building_lifts = {}
-        for lift in msg.lifts:
-            self.building_lifts[lift.name] = lift
+        try:
+            self.get_logger().info(f'Received building map with {len(msg.levels)} levels \
+            and {len(msg.lifts)} lifts')
+            self.building_doors = {}
+            self.building_lifts = {}
+            for lift in msg.lifts:
+                self.building_lifts[lift.name] = lift
 
-        for level in msg.levels:
-            self.building_doors[level.name] = {}
-            self.door_states[level.name] = {}
-            for door in level.doors:
-                self.building_doors[level.name][door.name] = door
-        self.initialized = True
+            for level in msg.levels:
+                self.building_doors[level.name] = {}
+                self.door_states[level.name] = {}
+                for door in level.doors:
+                    self.get_logger().info(
+                        f'Adding {[door.name]} to level [{level.name}]')
+                    self.building_doors[level.name][door.name] = door
+            self.initialized = True
+        except Exception as ex:
+            pass
 
     def door_cb(self, msg):
-        if not self.initialized or \
-          msg.door_name not in self.building_doors[self.map_name]:
-            return
+        try:
+            if not self.initialized or \
+                    msg.door_name not in self.building_doors[self.map_name]:
+                return
 
-        publish_marker = False
-        door_state = self.door_states[self.map_name]
-        if msg.door_name not in door_state:
-            door_state[msg.door_name] = msg
-            publish_marker = True
-        else:
-            if msg.current_mode.value != \
-              door_state[msg.door_name].current_mode.value:
+            publish_marker = False
+            door_state = self.door_states[self.map_name]
+            if msg.door_name not in door_state:
                 door_state[msg.door_name] = msg
                 publish_marker = True
+            else:
+                if msg.current_mode.value != \
+                        door_state[msg.door_name].current_mode.value:
+                    door_state[msg.door_name] = msg
+                    publish_marker = True
 
-        if publish_marker:
-            marker_array = MarkerArray()
-            marker = self.create_door_marker(msg)
-            text_marker = self.create_door_text_marker(msg)
-            if marker is not None:
-                marker_array.markers.append(marker)
-                self.active_markers[msg.door_name] = marker
-            if text_marker is not None:
-                marker_array.markers.append(text_marker)
-                self.active_markers[f'{msg.door_name}_text'] = text_marker
-            self.marker_pub.publish(marker_array)
+            if publish_marker:
+                marker_array = MarkerArray()
+                marker = self.create_door_marker(msg)
+                text_marker = self.create_door_text_marker(msg)
+                if marker is not None:
+                    marker_array.markers.append(marker)
+                    self.active_markers[msg.door_name] = marker
+                if text_marker is not None:
+                    marker_array.markers.append(text_marker)
+                    self.active_markers[f'{msg.door_name}_text'] = text_marker
+                self.marker_pub.publish(marker_array)
+        except Exception as ex:
+            # self.get_logger().error(
+            #     f'Error in handilng door message from [{msg.door_name}]'
+            #     f'Exception={ex=}')
+            pass
 
     def lift_cb(self, msg):
-        if not self.initialized:
-            return
-        publish_marker = False
-        if msg.lift_name not in self.lift_states:
-            self.lift_states[msg.lift_name] = msg
-            publish_marker = True
-        else:
-            stored_state = self.lift_states[msg.lift_name]
-            if msg.current_floor != stored_state.current_floor or \
-               msg.motion_state != stored_state.motion_state or \
-               msg.door_state != stored_state.door_state:
+        try:
+            if not self.initialized:
+                return
+            publish_marker = False
+            if msg.lift_name not in self.lift_states:
                 self.lift_states[msg.lift_name] = msg
                 publish_marker = True
+            else:
+                stored_state = self.lift_states[msg.lift_name]
+                if msg.current_floor != stored_state.current_floor or \
+                        msg.motion_state != stored_state.motion_state or \
+                        msg.door_state != stored_state.door_state:
+                    self.lift_states[msg.lift_name] = msg
+                    publish_marker = True
 
-        if publish_marker:
-            marker_array = MarkerArray()
-            marker = self.create_lift_marker(msg.lift_name)
-            text_marker = self.create_lift_text_marker(msg.lift_name)
-            if marker is not None:
-                marker_array.markers.append(marker)
-            if text_marker is not None:
-                marker_array.markers.append(text_marker)
-            self.marker_pub.publish(marker_array)
+            if publish_marker:
+                marker_array = MarkerArray()
+                marker = self.create_lift_marker(msg.lift_name)
+                text_marker = self.create_lift_text_marker(msg.lift_name)
+                if marker is not None:
+                    marker_array.markers.append(marker)
+                if text_marker is not None:
+                    marker_array.markers.append(text_marker)
+                self.marker_pub.publish(marker_array)
+        except Exception as ex:
+            pass
 
     def param_cb(self, msg):
-        if not self.initialized or \
-          msg.map_name not in self.building_doors:
-            return
+        try:
+            if not self.initialized or \
+                    msg.map_name not in self.building_doors:
+                return
 
-        self.map_name = msg.map_name
-        marker_array = MarkerArray()
-        # deleting previously avtive door markers
-        for name, marker in self.active_markers.items():
-            if marker is not None:
-                marker.action = Marker.DELETE
-                marker_array.markers.append(marker)
-        self.active_markers = {}
-        self.marker_pub.publish(marker_array)
+            self.map_name = msg.map_name
+            marker_array = MarkerArray()
+            # deleting previously avtive door markers
+            for name, marker in self.active_markers.items():
+                if marker is not None:
+                    marker.action = Marker.DELETE
+                    marker_array.markers.append(marker)
+            self.active_markers = {}
+            self.marker_pub.publish(marker_array)
 
-        # clearing door states and lift states so that markers can be updated
-        self.door_states[self.map_name] = {}
-        self.lift_states = {}
+            # clearing door states and lift states so that markers can be updated
+            self.door_states[self.map_name] = {}
+            self.lift_states = {}
+        except Exception as ex:
+            pass
 
 
 def main(argv=sys.argv):
