@@ -413,6 +413,10 @@ std::shared_ptr<TrajectoryServer> TrajectoryServer::make(
   using websocketpp::lib::placeholders::_1;
   using websocketpp::lib::placeholders::_2;
   using websocketpp::lib::bind;
+  server_ptr->_pimpl->server->clear_access_channels(
+    websocketpp::log::alevel::all);
+  server_ptr->_pimpl->server->clear_error_channels(
+    websocketpp::log::elevel::all);
   server_ptr->_pimpl->server->init_asio();
   server_ptr->_pimpl->server->set_open_handler(bind(
       &TrajectoryServer::Implementation::on_open, std::ref(
@@ -432,6 +436,9 @@ std::shared_ptr<TrajectoryServer> TrajectoryServer::make(
     server_ptr->_pimpl->server->start_accept();
     server_ptr->_pimpl->server_thread = std::thread(
       [server_ptr]() {server_ptr->_pimpl->server->run();});
+
+    RCLCPP_INFO(schedule_data_node->get_logger(),
+      "[TrajectoryServer] Started listnening at port %d", port);
   }
   catch (std::exception& e)
   {
